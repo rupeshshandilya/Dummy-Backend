@@ -143,47 +143,54 @@ app.get("/health", (req, res) => {
 app.post("/simulate", (req, res) => {
   const email = "test@example.com";
   const flow = "login";
-  const userId = 1;
+  const userId = 1; // simulated user
 
+  // Simulate login attempt
   emitEvent("login_attempted", {
     email,
-    userId,
     flow,
   });
 
   const randomOutcome = Math.random();
 
   if (randomOutcome < 0.4) {
+    // Invalid OTP (user exists but OTP wrong)
     emitEvent("login_failed", {
-      email,
       userId,
+      email,
       reason: "invalid_otp",
       flow,
     });
 
-    return res.json({ scenario: "login_failed_invalid_otp" });
+    return res.json({
+      scenario: "login_failed_invalid_otp",
+    });
   }
 
   if (randomOutcome < 0.7) {
+    // OTP sent but user never completes
     emitEvent("otp_sent", {
-      email,
       userId,
+      email,
       flow,
     });
 
     emitEvent("login_failed", {
-      email,
       userId,
+      email,
       reason: "otp_timeout",
       flow,
     });
 
-    return res.json({ scenario: "otp_timeout" });
+    return res.json({
+      scenario: "otp_timeout",
+    });
   }
 
+  // Successful login
   emitEvent("otp_sent", {
-    email,
     userId,
+    email,
     flow,
   });
 
@@ -194,8 +201,11 @@ app.post("/simulate", (req, res) => {
     flow,
   });
 
-  res.json({ scenario: "login_success" });
+  res.json({
+    scenario: "login_success",
+  });
 });
+
 
 /* -------- Server -------- */
 app.listen(PORT, () => {
