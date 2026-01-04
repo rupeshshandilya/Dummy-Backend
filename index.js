@@ -9,7 +9,7 @@ const PORT = 8081;
 const N8N_WEBHOOK_URL =
   "https://learnn8nrupesh.app.n8n.cloud/webhook-test/user-event";
 
-export function emitEvent(event, payload = {}) {
+function emitEvent(event, payload = {}) {
   fetch(N8N_WEBHOOK_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -22,6 +22,11 @@ export function emitEvent(event, payload = {}) {
   }).catch((error) => {
     console.log(error);
   });
+}
+
+function getUserIdByEmail(email) {
+  const user = users.find((u) => u.email === email);
+  return user ? user.id : null;
 }
 
 /* -------- Hardcoded Users with OTP -------- */
@@ -44,19 +49,23 @@ const users = [
 app.post("/login", (req, res) => {
   const { email, otp } = req.body;
 
-  // Event 1: login attempt
+  const possibleUserId = email ? getUserIdByEmail(email) : null;
+
+  // login attempt
   emitEvent("login_attempted", {
     email,
+    userId: possibleUserId ?? undefined,
     flow: "login",
   });
 
   if (!email || !otp) {
-    // Event 2: failed due to missing data
     emitEvent("login_failed", {
       email,
+      userId: possibleUserId ?? undefined,
       reason: "missing_fields",
       flow: "login",
     });
+
     return res.status(400).json({
       message: "Email and OTP required",
     });
@@ -67,18 +76,19 @@ app.post("/login", (req, res) => {
   );
 
   if (!userExist) {
-    // Event 3: failed due to wrong OTP
     emitEvent("login_failed", {
       email,
+      userId: possibleUserId ?? undefined,
       reason: "invalid_otp",
       flow: "login",
     });
+
     return res.status(401).json({
       message: "Invalid email or OTP",
     });
   }
 
-  // Event 4: login success
+  // success
   emitEvent("login_success", {
     userId: userExist.id,
     email: userExist.email,
@@ -133,63 +143,58 @@ app.get("/health", (req, res) => {
 app.post("/simulate", (req, res) => {
   const email = "test@example.com";
   const flow = "login";
+  const userId = 1;
 
-  // Simulate login attempt
   emitEvent("login_attempted", {
     email,
+    userId,
     flow,
   });
 
-  // Random delay simulation
   const randomOutcome = Math.random();
 
   if (randomOutcome < 0.4) {
-    // Invalid OTP
     emitEvent("login_failed", {
       email,
+      userId,
       reason: "invalid_otp",
       flow,
     });
 
-    return res.json({
-      scenario: "login_failed_invalid_otp",
-    });
+    return res.json({ scenario: "login_failed_invalid_otp" });
   }
 
   if (randomOutcome < 0.7) {
-    // OTP timeout / user dropped
     emitEvent("otp_sent", {
       email,
+      userId,
       flow,
     });
 
     emitEvent("login_failed", {
       email,
+      userId,
       reason: "otp_timeout",
       flow,
     });
 
-    return res.json({
-      scenario: "otp_timeout",
-    });
+    return res.json({ scenario: "otp_timeout" });
   }
 
-  // Successful login
   emitEvent("otp_sent", {
     email,
+    userId,
     flow,
   });
 
   emitEvent("login_success", {
-    userId: 1,
+    userId,
     email,
     role: "user",
     flow,
   });
 
-  res.json({
-    scenario: "login_success",
-  });
+  res.json({ scenario: "login_success" });
 });
 
 /* -------- Server -------- */
